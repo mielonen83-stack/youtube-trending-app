@@ -4,3 +4,8 @@ isodate
 streamlit
 feedparser
 beautifulsoup4
+streamlit
+google-api-python-client
+feedparser
+requests
+openai
