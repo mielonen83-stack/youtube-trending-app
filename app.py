@@ -151,7 +151,6 @@ else:
             if not live_items:
                 st.info("Aktiivisia live-lähetyksiä tällä hakusanalla ei löytynyt tällä hetkellä. Kokeile toista hakua.")
             else:
-                # Muutettu 3 sarakkeesta 4 sarakkeeseen, jotta videot ovat pienempiä ja niitä mahtuu enemmän
                 cols = st.columns(4)
                 for idx, item in enumerate(live_items):
                     v_title = item["snippet"]["title"]
@@ -160,9 +159,11 @@ else:
                     v_url = f"https://www.youtube.com/watch?v={v_id}"
 
                     with cols[idx % 4]:
-                        # Lyhennetään pitkiä otsikoita hieman siistimmän ulkoasun vuoksi
                         short_title = v_title if len(v_title) < 55 else v_title[:52] + "..."
                         st.markdown(f"**{short_title}**")
                         st.caption(f"📺 {channel_title} | 🔴 LIVE")
                         st.video(v_url)
-                        st.write("") # Pieni väli
+                        st.write("")
+
+        except Exception as e:
+            st.error(f"Virhe live-haussa: {e}")
