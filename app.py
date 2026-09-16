@@ -1,88 +1,58 @@
 import streamlit as st
-from googleapiclient.discovery import build
-import isodate
+import feedparser
+from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="YouTuben Trendit Aiheittain", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Shorts-ideat Uutisista", page_icon="📰", layout="wide")
 
-st.title("🎯 YouTuben suosituimmat videot aiheittain")
-st.write("Valitse aihe-alue sivupalkista. (Shorts-videot on suodatettu automaattisesti pois!)")
+st.title("📰 Shorts-ideat koti- ja ulkomailta")
+st.write("Valitse lähde sivupalkista. Poimi uutisista aiheet, joista teet napakoita YouTube Shorts / TikTok -videoita!")
 
-CATEGORIES = {
-    "23": "😂 Komedia",
-    "24": "🍿 Viihde",
-    "17": "⚽ Urheilu",
-    "20": "🎮 Pelaaminen",
-    "10": "🎵 Musiikki",
-    "22": "👥 Ihmiset ja blogit",
-    "25": "📰 Uutiset ja politiikka"
+# Laajempi lista: sekä suomalaisia että ulkomaisia uutislähteitä
+FEEDS = {
+    "🇫🇮 MTV Uutiset": "https://www.mtv.fi/api/feed/rss/uutiset",
+    "🇫🇮 Yle Uutiset": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=yle_uutiset",
+    "🌍 BBC News (World)": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "🌍 CNN Top Stories": "http://rss.cnn.com/rss/edition.rss",
+    "🌍 Reuters (Top News)": "https://www.reutersagency.com/feed/?best-topics=top-news&post_type=best"
 }
 
-st.sidebar.header("Suodattimet")
-selected_category_name = st.sidebar.selectbox(
-    "Valitse aihe-alue:",
-    list(CATEGORIES.values())
-)
-
-selected_category_id = [cat_id for cat_id, name in CATEGORIES.items() if name == selected_category_name][0]
+st.sidebar.header("Uutislähteet")
+selected_source = st.sidebar.selectbox("Valitse lähde:", list(FEEDS.keys()))
 
 try:
-    api_key = st.secrets["YOUTUBE_API_KEY"]
-except Exception:
-    api_key = None
+    with st.spinner(f"Haetaan uutisia lähteestä {selected_source}..."):
+        feed_url = FEEDS[selected_source]
+        feed = feedparser.parse(feed_url)
+        entries = feed.entries[:20]  # Otetaan 20 tuoreinta
 
-if not api_key:
-    st.error("YouTube API-avainta ei ole asetettu Streamlitin salaisuuksiin (Secrets).")
-else:
-    try:
-        youtube = build("youtube", "v3", developerKey=api_key)
+    if not entries:
+        st.info("Uutisia ei löytynyt tällä hetkellä.")
+    else:
+        st.header(f"Tuoreimmat uutiset: {selected_source}")
+        st.write("Vinkki: Kansainvälisistä uutisista löydät usein erikoisia tai shokeeraavia aiheita, jotka toimivat loistavasti lyhytvideoissa!")
         
-        with st.spinner(f"Haetaan videoita aiheesta: {selected_category_name}..."):
-            # Haetaan isompi nippu (esim. 40), jotta suodatuksen jälkeen riittää pitkiä videoita
-            request = youtube.videos().list(
-                part="snippet,statistics,contentDetails",
-                chart="mostPopular",
-                regionCode="FI",
-                videoCategoryId=selected_category_id,
-                maxResults=40
-            )
-            response = request.execute()
-
-        items = response.get("items", [])
-        
-        # Suodatetaan Shorts-videot pois (kesto alle 60 sekuntia)
-        filtered_items = []
-        for item in items:
-            duration_str = item["contentDetails"]["duration"]
-            duration = isodate.parse_duration(duration_str)
+        for index, entry in enumerate(entries):
+            title = entry.get("title", "Ei otsikkoa")
+            link = entry.get("link", "#")
+            published = entry.get("published", "")
+            summary = entry.get("summary", "Ei tiivistelmää saatavilla.")
             
-            if duration.total_seconds() > 60:
-                filtered_items.append(item)
-                
-            # Asetetaan halutuksi maksimimääräksi nyt esimerkiksi 24 kpl
-            if len(filtered_items) >= 24:
-                break
+            # Siistitään HTML-tagit tiivistelmästä
+            soup = BeautifulSoup(summary, "html.parser")
+            clean_summary = soup.get_text()
 
-        if not filtered_items:
-            st.info("Ei löytynyt sopivia pitkiä videoita valitusta kategoriasta tällä hetkellä.")
-        else:
-            st.header(f"{selected_category_name} (Näytetään {len(filtered_items)} suosituinta)")
-            
-            # Luodaan 4 saraketta, jotta useampi video mahtuu siististi rinnakkain
-            cols = st.columns(4)
-            for index, item in enumerate(filtered_items):
-                title = item["snippet"]["title"]
-                channel = item["snippet"]["channelTitle"]
-                views = int(item["statistics"].get("viewCount", 0))
-                video_id = item["id"]
-                url = f"https://www.youtube.com/watch?v={video_id}"
+            with st.container():
+                st.subheader(title)
+                if published:
+                    st.caption(f"📅 Julkaistu: {published}")
+                st.write(clean_summary if clean_summary else "Ei kuvausta saatavilla.")
+                st.markdown(f"[Lue alkuperäinen artikkeli]({link})")
                 
-                with cols[index % 4]:
-                    st.subheader(title)
-                    st.write(f"📺 **Kanava:** {channel}")
-                    st.write(f"👁️ **Katselukerrat:** {views:,}".replace(",", " "))
-                    st.markdown(f"[Katso videosta]({url})")
-                    st.video(url)
-                    st.divider()
+                # Ideointinappi
+                if st.button(f"💡 Generoi Shorts-käsikirjoitus", key=f"btn_{index}_{link}"):
+                    st.success(f"Idean runko:\n1. Koukku: 'Et ikinä arvaa mitä tapahtui...' tai 'Tästä puhutaan nyt maailmalla!'\n2. Aihe: {title}\n3. Loppuun kysymys katsojille.")
+                
+                st.divider()
 
-    except Exception as e:
-        st.error(f"Virhe haussa: {e}")
+except Exception as e:
+    st.error(f"Virhe uutisten haussa: {e}")
