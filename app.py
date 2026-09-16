@@ -1,24 +1,44 @@
 import streamlit as st
 from googleapiclient.discovery import build
 
-st.set_page_config(page_title="YouTube-kanavien vakoilija", page_icon="📺", layout="wide")
+st.set_page_config(page_title="YouTube Uutis- ja Shorts-kanavat", page_icon="📺", layout="wide")
 
-st.title("📺 Suositut uutis- ja Shorts-kanavat (Koti & Ulkomaat)")
-st.write("Valitse alta kanavaryhmä, niin näet kanavien tilastoja ja tuoreimpia videoita ideoinnin avuksi!")
+st.title("📺 Uutis- ja Shorts-kanavien ideapankki (Koti & Ulkomaat)")
+st.write("Valitse alta haluamasi kanava, niin näet sen tilastot ja tuoreimmat videot suoraan ruudulla!")
 
-# Esimerkkikanavien YouTube Channel ID:t
-# (Voit lisätä tai vaihtaa näitä halutessasi!)
+# Laaja lista suomalaisia ja kansainvälisiä uutis- ja ajankohtaiskanavia
 CHANNELS = {
-    "🇫🇮 MTV Uutiset": "UC1-82B-7b952Z505d9l653A", # Esimerkki ID, korjataan tarvittaessa tai haetaan haulla
-    "🇫🇮 Yle Uutiset": "UCl2cK_N1oZ20mCkkzJv6mDQ",
-    "🌍 BBC News": "UC16niRr50-MSBwiO3YDb3RA",
-    "🌍 CNN": "UCupvZG-5ko_eiXAupbDfxWw",
-    "🌍 Insider": "UCZXgSjDfc2GLjDvF3cSOSSQ" # Tunnettu Shorts- ja erikoisjutuistaan
+    # 🇫🇮 Suomi
+    "🇫🇮 MTV Uutiset": "MTV Uutiset",
+    "🇫🇮 Yle Uutiset": "Yle Uutiset",
+    "🇫🇮 Iltalehti": "Iltalehti",
+    "🇫🇮 Ilta-Sanomat": "Ilta-Sanomat",
+    "🇫🇮 Nelonen Uutiset": "Nelonen Uutiset",
+    
+    # 🌍 Kansainväliset uutiset
+    "🌍 BBC News": "BBC News",
+    "🌍 CNN": "CNN",
+    "🌍 Reuters": "Reuters",
+    "🌍 Sky News": "Sky News",
+    "🌍 ABC News (USA)": "ABC News",
+    "🌍 CBS News": "CBS News",
+    "🌍 NBC News": "NBC News",
+    "🌍 Fox News": "Fox News",
+    "🌍 Al Jazeera English": "Al Jazeera English",
+    "🌍 DW News (Saksa)": "DW News",
+    "🌍 FRANCE 24 (Ranska)": "FRANCE 24",
+    
+    # 🚀 Shorts-henkiset / Selittävät uutiskanavat (Loistvia ideoille!)
+    "💡 Insider News": "Insider News",
+    "💡 Vox": "Vox",
+    "💡 Vice News": "VICE News",
+    "💡 The Wall Street Journal": "The Wall Street Journal",
+    "💡 Bloomberg Technology": "Bloomberg Technology"
 }
 
-# Vaihtoehtoisesti annetaan käyttäjän valita kanava
-selected_channel_name = st.sidebar.selectbox("Valitse kanava:", list(CHANNELS.keys()))
-channel_id = CHANNELS[selected_channel_name]
+st.sidebar.header("Valitse kanava")
+selected_channel_name = st.sidebar.selectbox("Kanavalista:", list(CHANNELS.keys()))
+search_query = CHANNELS[selected_channel_name]
 
 try:
     api_key = st.secrets["YOUTUBE_API_KEY"]
@@ -31,38 +51,51 @@ else:
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
         
-        with st.spinner(f"Haetaan tietoja kanavasta {selected_channel_name}..."):
-            # Haetaan kanavan tiedot (tilastot, kuvaus jne.)
+        with st.spinner(f"Etsitään kanavaa '{search_query}'..."):
+            # Etsitään kanavaa nimellä, jotta ID pysyy aina oikeana
+            search_request = youtube.search().list(
+                part="snippet",
+                q=search_query,
+                type="channel",
+                maxResults=1
+            )
+            search_response = search_request.execute()
+
+        search_items = search_response.get("items", [])
+        
+        if not search_items:
+            st.warning(f"Kanavaa '{search_query}' ei löytynyt.")
+        else:
+            channel_id = search_items["id"]["channelId"]
+            
+            # Haetaan kanavan tarkat tiedot
             channel_request = youtube.channels().list(
                 part="snippet,statistics,contentDetails",
                 id=channel_id
             )
             channel_response = channel_request.execute()
-
-        if not channel_response.get("items"):
-            st.warning("Kanavaa ei löytynyt tällä ID:llä. (Huom: Joillakin kanavilla ID voi muuttua, tarkistetaan tarvittaessa!)")
-        else:
-            ch_data = channel_response["items"][0]
+            
+            ch_data = channel_response["items"]
             title = ch_data["snippet"]["title"]
             description = ch_data["snippet"]["description"]
             subs = int(ch_data["statistics"].get("subscriberCount", 0))
             views = int(ch_data["statistics"].get("viewCount", 0))
             avatar = ch_data["snippet"]["thumbnails"]["high"]["url"]
             
-            # Näytetään kanavan tiedot
+            # Näytetään kanavan tiedot siististi
             col1, col2 = st.columns([1, 4])
             with col1:
                 st.image(avatar, width=150)
             with col2:
                 st.header(title)
-                st.write(description[:300] + "...")
+                st.write(description[:300] + "..." if description else "Ei kuvausta.")
                 st.metric("Tilaajia", f"{subs:,}".replace(",", " "))
                 st.metric("Katselukertoja yhteensä", f"{views:,}".replace(",", " "))
             
             st.divider()
             st.subheader(f"Kanavan tuoreimmat videot: {title}")
 
-            # Haetaan kyseisen kanavan viimeisimmät videot uploads-soittolistasta
+            # Haetaan uusin sisältö uploads-soittolistasta
             uploads_playlist_id = ch_data["contentDetails"]["relatedPlaylists"]["uploads"]
             
             playlist_request = youtube.playlistItems().list(
@@ -75,7 +108,7 @@ else:
             video_items = playlist_response.get("items", [])
             
             if not video_items:
-                st.info("Videoita ei löytynyt.")
+                st.info("Videoita ei löytynyt tältä kanavalta.")
             else:
                 v_cols = st.columns(3)
                 for idx, v_item in enumerate(video_items):
@@ -84,7 +117,7 @@ else:
                     v_url = f"https://www.youtube.com/watch?v={v_id}"
                     
                     with v_cols[idx % 3]:
-                        st.write(f"**{v_title}**")
+                        st.subheader(v_title)
                         st.video(v_url)
                         st.divider()
 
