@@ -6,17 +6,18 @@ st.set_page_config(page_title="YouTuben Top Hauskat", page_icon="😂", layout="
 st.title("😂 Tämän hetken suosituimmat hauskat videot")
 st.write("Tämä sovellus hakee YouTuben trendaavia komediavideoita reaaliajassa YouTube Data API:n avulla.")
 
-# Kysytään API-avainta sivupalkissa
-api_key = st.sidebar.text_input("Syötä YouTube API-avain", type="password")
+# Haetaan API-avain Streamlitin salaisuuksista (st.secrets)
+try:
+    api_key = st.secrets["YOUTUBE_API_KEY"]
+except Exception:
+    api_key = None
 
 if not api_key:
-    st.warning("Syötä vasemmalle sivupalkkiin YouTube Data API -avaimesi aloittaaksesi.")
-    st.info("Vinkki: Saat API-avaimen Google Cloud Consolesta (console.cloud.google.com) ottamalla käyttöön 'YouTube Data API v3'.")
+    st.error("YouTube API-avainta ei ole asetettu Streamlitin salaisuuksiin (Secrets). Lisää se sovelluksen asetuksiin.")
 else:
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
         
-        # Haetaan suosittuja komediavideoita (kategoria 23 = Comedy)
         with st.spinner("Haetaan videoita YouTubesta..."):
             request = youtube.videos().list(
                 part="snippet,statistics",
