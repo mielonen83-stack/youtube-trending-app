@@ -3,6 +3,18 @@ from googleapiclient.discovery import build
 
 st.set_page_config(page_title="YouTube Uutiset & Live-kamerat", page_icon="🔴", layout="wide")
 
+# Pieni CSS-käännös, jotta videoiden otsikot pysyvät sopivan kokoisina ja tiiviinä
+st.markdown("""
+    <style>
+    .stVideo {
+        margin-bottom: -20px;
+    }
+    h3 {
+        font-size: 1.1rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🔴 YouTube Uutiset & Maailman Live-kamerat (24/7)")
 st.write("Selaa uutiskanavia tai hyppää suoraan suoriin lähetyksiin, sääkameroihin ja tapahtumiin ympäri maailmaa!")
 
@@ -118,18 +130,20 @@ else:
         # Valitaan pikavalinta tai kirjoitetaan itse
         selected_preset_name = st.sidebar.selectbox("Valitse live-kategoria:", list(LIVE_PRESETS.keys()))
         custom_live_query = st.sidebar.text_input("Tai kirjoita oma haku:", value=LIVE_PRESETS[selected_preset_name])
+        
+        # Mahdollisuus säätää montako tulosta näytetään kerralla
+        max_results = st.sidebar.slider("Näytettävien live-kuvien määrä:", min_value=4, max_value=24, value=12, step=4)
 
         search_query = custom_live_query if custom_live_query else LIVE_PRESETS[selected_preset_name]
 
         try:
             with st.spinner(f"Etsitään suoria lähetyksiä haulla '{search_query}'..."):
-                # Haetaan videot, joissa eventType on 'live'
                 live_response = youtube.search().list(
                     part="snippet",
                     q=search_query,
                     type="video",
                     eventType="live",
-                    maxResults=12
+                    maxResults=max_results
                 ).execute()
 
             live_items = live_response.get("items", [])
@@ -137,19 +151,18 @@ else:
             if not live_items:
                 st.info("Aktiivisia live-lähetyksiä tällä hakusanalla ei löytynyt tällä hetkellä. Kokeile toista hakua.")
             else:
-                cols = st.columns(3)
+                # Muutettu 3 sarakkeesta 4 sarakkeeseen, jotta videot ovat pienempiä ja niitä mahtuu enemmän
+                cols = st.columns(4)
                 for idx, item in enumerate(live_items):
                     v_title = item["snippet"]["title"]
                     channel_title = item["snippet"]["channelTitle"]
                     v_id = item["id"]["videoId"]
                     v_url = f"https://www.youtube.com/watch?v={v_id}"
 
-                    with cols[idx % 3]:
-                        st.subheader(v_title)
-                        st.write(f"📺 **Kanava:** {channel_title}")
-                        st.markdown("🔴 **LIVE NYT (24/7)**")
+                    with cols[idx % 4]:
+                        # Lyhennetään pitkiä otsikoita hieman siistimmän ulkoasun vuoksi
+                        short_title = v_title if len(v_title) < 55 else v_title[:52] + "..."
+                        st.markdown(f"**{short_title}**")
+                        st.caption(f"📺 {channel_title} | 🔴 LIVE")
                         st.video(v_url)
-                        st.divider()
-
-        except Exception as e:
-            st.error(f"Virhe live-haussa: {e}")
+                        st.write("") # Pieni väli
