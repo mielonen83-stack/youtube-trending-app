@@ -1,5 +1,4 @@
 import streamlit as st
-import requests
 from googleapiclient.discovery import build
 
 st.set_page_config(page_title="YouTube Uutiset & Suomen Kelikamerat", page_icon="❄️", layout="wide")
@@ -13,20 +12,15 @@ st.markdown("""
     h3 {
         font-size: 1.1rem !important;
     }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 5px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("❄️ Suomen Kelikamerat, Uutiset & Maailman Live-streamit")
-st.write("Valitse sivupalkista haluatko selailla uutiskanavia, YouTube-livekameroita vai Suomen virallisia kelikameroita!")
+st.write("Valitse sivupalkista haluatko selailla uutiskanavia, YouTube-livekameroita vai Suomen tie- ja kelikameroita!")
 
 # Päävalikko: Kolme tilaa
 mode = st.sidebar.radio("Valitse tila:", [
-    "❄️ Suomalaiset Kelikamerat (Fintraffic)", 
+    "❄️ Suomalaiset Kelikamerat & Liikenne", 
     "🔴 YouTube Live-kamerat & 24/7", 
     "📺 Uutiskanavat"
 ])
@@ -66,73 +60,56 @@ try:
 except Exception:
     api_key = None
 
-# --- TILA 1: SUOMEN KELIKAMERAT (Fintraffic API) ---
-if mode == "❄️ Suomalaiset Kelikamerat (Fintraffic)":
-    st.subheader("❄️ Suomen maanteiden kelikamerat (Fintraffic / Liikennevirasto)")
-    st.write("Tämä osio hakee suoraan Suomen viralliset kelikameroiden tuoreet kuvat maanteiltä ympäri maata.")
+youtube = build("youtube", "v3", developerKey=api_key) if api_key else None
 
-    # Aluevalinta tai maantievalinta
-    region_filter = st.sidebar.selectbox("Valitse alue / maantie:", [
-        "Kaikki haetut asemat",
-        "Pääkaupunkiseutu (Helsinki / Espoo)",
-        "Etelä-Suomi",
-        "Keski-Suomi",
-        "Pohjois-Suomi / Lappi"
+# --- TILA 1: SUOMEN KELIKAMERAT JA LIIKENNE ---
+if mode == "❄️ Suomalaiset Kelikamerat & Liikenne":
+    st.subheader("❄️ Suomen tie- ja kelikamerat sekä liikennevalvonta (Live)")
+    st.write("Suorat live-syötteet Suomen teiltä, kaupungeista ja säätilasta.")
+
+    road_query = st.sidebar.selectbox("Valitse kelialue:", [
+        "Suomen maantiet ja kelikamerat",
+        "Helsinki liikenne ja kamerat",
+        "Tampere ja Turku kelikamerat",
+        "Pohjois-Suomi ja Lappi kelikamerat",
+        "Suomen säätila ja taivas"
     ])
+    
+    max_results = st.sidebar.slider("Näytettävien kameroiden määrä:", min_value=4, max_value=24, value=12, step=4)
 
-    try:
-        with st.spinner("Haetaan kelikameroita Fintrafficin avoimesta rajapinnasta..."):
-            # Haetaan keliasemat Fintrafficin avoimesta rajapinnasta
-            url = "https://tie.digitraffic.fi/api/weather/v1/stations"
-            response = requests.get(url, timeout=10)
-            
-            if response.status_code != 200:
-                st.error("Kelitietojen haku epäonnistui (Fintraffic API ei vastannut).")
+    if not api_key:
+        st.error("YouTube API-avain puuttuu Streamlit Secretsistä.")
+    else:
+        try:
+            with st.spinner(f"Haetaan kelikameroita haulla '{road_query}'..."):
+                response = youtube.search().list(
+                    part="snippet",
+                    q=road_query,
+                    type="video",
+                    eventType="live",
+                    maxResults=max_results
+                ).execute()
+
+            items = response.get("items", [])
+            if not items:
+                st.info("Aktiivisia kelikameroita ei löytynyt tällä haulla tällä hetkellä.")
             else:
-                data = response.json()
-                stations = data.get("stations", [])
-                
-                # Suodatetaan asemat, joissa on kamerakuvia
-                camera_stations = []
-                for stn in stations:
-                    # Tarkistetaan onko asemalla kameraan liittyviä tietoja tai kuvia
-                    # Fintraffic tarjoaa säätietoihin liittyviä kameroiden kuvavarastoja
-                    name = stn.get("name", "Tuntematon asema")
-                    # Etsitään kameratiedot
-                    # Jos asemalla on weathercam-kuvia
-                    history_url = f"https://tie.digitraffic.fi/api/weather/v1/stations/{stn['id']}/history"
-                    camera_stations.append((name, stn['id']))
+                cols = st.columns(4)
+                for idx, item in enumerate(items):
+                    v_title = item["snippet"]["title"]
+                    channel_title = item["snippet"]["channelTitle"]
+                    v_id = item["id"]["videoId"]
+                    v_url = f"https://www.youtube.com/watch?v={v_id}"
 
-                st.success(f"Löytyi {len(camera_stations)} keliasemaa.")
-                
-                # Koska asemia on satoja, näytetään ensimmäiset 16 sarakkeissa (4x4)
-                cam_cols = st.columns(4)
-                
-                # Otetaan vaikka 16 ensimmäistä esimerkkikuvaa
-                count = 0
-                for name, stn_id in camera_stations[:20]:
-                    try:
-                        hist_res = requests.get(f"https://tie.digitraffic.fi/api/weather/v1/stations/{stn_id}/history", timeout=5)
-                        if hist_res.status_code == 200:
-                            hist_data = hist_res.json()
-                            # Etsitään tuorein kamerakuva jos saatavilla
-                            # Jos suoraa kuvalinkkiä ei löydy helposti JSONista, näytetään aseman tiedot ja linkki
-                            with cam_cols[count % 4]:
-                                st.markdown(f"**📍 {name}**")
-                                st.caption(f"Asema ID: {stn_id}")
-                                st.info("Keliaseman tiedot haettu")
-                                count += 1
-                    except:
-                        pass
-                        
-                    if count >= 12:
-                        break
+                    with cols[idx % 4]:
+                        short_title = v_title if len(v_title) < 55 else v_title[:52] + "..."
+                        st.markdown(f"**{short_title}**")
+                        st.caption(f"📺 {channel_title} | ❄️ KELI LIVE")
+                        st.video(v_url)
+                        st.write("")
 
-                if count == 0:
-                    st.info("Kuvia ei saatu ladattua juuri nyt. Voit käyttää myös YouTube-pohjaisia sääkameroita sivupalkin kautta!")
-
-    except Exception as e:
-        st.error(f"Virhe kelikameroiden haussa: {e}")
+        except Exception as e:
+            st.error(f"Virhe kelikameroiden haussa: {e}")
 
 # --- TILA 2: YOUTUBE LIVE-KAMERAT ---
 elif mode == "🔴 YouTube Live-kamerat & 24/7":
@@ -141,8 +118,6 @@ elif mode == "🔴 YouTube Live-kamerat & 24/7":
     if not api_key:
         st.error("YouTube API-avain puuttuu Streamlit Secretsistä.")
     else:
-        youtube = build("youtube", "v3", developerKey=api_key)
-        
         selected_preset_name = st.sidebar.selectbox("Valitse live-kategoria:", list(LIVE_PRESETS.keys()))
         custom_live_query = st.sidebar.text_input("Tai kirjoita oma haku:", value=LIVE_PRESETS[selected_preset_name])
         max_results = st.sidebar.slider("Näytettävien live-kuvien määrä:", min_value=4, max_value=24, value=12, step=4)
@@ -188,7 +163,6 @@ elif mode == "📺 Uutiskanavat":
     if not api_key:
         st.error("YouTube API-avain puuttuu Streamlit Secretsistä.")
     else:
-        youtube = build("youtube", "v3", developerKey=api_key)
         selected_channel_name = st.sidebar.selectbox("Valitse uutislähde:", list(CHANNELS.keys()))
         search_query = CHANNELS[selected_channel_name]
 
