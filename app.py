@@ -28,7 +28,7 @@ CHANNELS = {
     "🌍 DW News (Saksa)": "DW News",
     "🌍 FRANCE 24 (Ranska)": "FRANCE 24",
     
-    # 🚀 Shorts-henkiset / Selittävät uutiskanavat (Loistvia ideoille!)
+    # 🚀 Shorts-henkiset / Selittävät uutiskanavat
     "💡 Insider News": "Insider News",
     "💡 Vox": "Vox",
     "💡 Vice News": "VICE News",
@@ -52,7 +52,7 @@ else:
         youtube = build("youtube", "v3", developerKey=api_key)
         
         with st.spinner(f"Etsitään kanavaa '{search_query}'..."):
-            # Etsitään kanavaa nimellä, jotta ID pysyy aina oikeana
+            # Etsitään kanavaa nimellä
             search_request = youtube.search().list(
                 part="snippet",
                 q=search_query,
@@ -66,7 +66,8 @@ else:
         if not search_items:
             st.warning(f"Kanavaa '{search_query}' ei löytynyt.")
         else:
-            channel_id = search_items["id"]["channelId"]
+            # KORJAUS TÄSSÄ: Otetaan listan ensimmäinen alkio [0]
+            channel_id = search_items[0]["id"]["channelId"]
             
             # Haetaan kanavan tarkat tiedot
             channel_request = youtube.channels().list(
@@ -75,7 +76,8 @@ else:
             )
             channel_response = channel_request.execute()
             
-            ch_data = channel_response["items"]
+            # KORJAUS TÄSSÄ: Otetaan listan ensimmäinen alkio [0]
+            ch_data = channel_response["items"][0]
             title = ch_data["snippet"]["title"]
             description = ch_data["snippet"]["description"]
             subs = int(ch_data["statistics"].get("subscriberCount", 0))
