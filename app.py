@@ -10,25 +10,6 @@ st.set_page_config(
     page_icon="🌐", 
     layout="wide",
     initial_sidebar_state="expanded"
-
-    # Nopea testauskoodi avaimille
-with st.sidebar.expander("🔑 API-avaimien tila"):
-    if openai_key:
-        try:
-            from openai import OpenAI
-            test_client = OpenAI(api_key=openai_key)
-            # Tehdään kevyt testikutso
-            test_client.models.list()
-            st.success("OpenAI-avain toimii! ✅")
-        except Exception as e:
-            st.error(f"OpenAI-virhe: {e}")
-    else:
-      st.warning("OPENAI_API_KEY puuttuu secretsistä.")
-
-    if api_key:
-        st.success("YouTube-avain löytyy! ✅")
-    else:
-        st.warning("YouTube API-avain puuttuu.")
 )
 
 # --- AMMATTIMAINEN CSS-MUOTOILU ---
@@ -55,27 +36,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- YLÄBANNERI ---
-st.markdown("""
-    <div class="breaking-banner">
-        <span>🔴 GLOBAL COMMAND CENTER & MASSIVE NEWS WIRE</span>
-        <span>Reaaliaikainen globaali uutis- ja valvontaverkko</span>
-    </div>
-""", unsafe_allow_html=True)
-
-st.title("🌐 Maailmanluokan Uutis- ja Live-keskus")
-st.write("Kattava, massiivinen uutisarkisto, joka kerää uutiset kymmenistä maailman johtavista medioista ja jalostaa ne tekoälyllä suomeksi.")
-
-# --- SIVUPALKIN NAVIGOINTI ---
-st.sidebar.markdown("### 🎛️ Navigaatio")
-mode = st.sidebar.radio("Valitse osasto:", [
-    "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)", 
-    "📺 Kansainväliset Uutiskanavat (Live)", 
-    "🔴 Maailman Live-kamerat & 24/7", 
-    "❄️ Suomen Kelikamerat & Liikenne"
-])
-
-# API-avaimet
+# --- API-AVAIMIEN LUKU ---
 try:
     api_key = st.secrets["YOUTUBE_API_KEY"]
 except Exception:
@@ -89,6 +50,46 @@ except Exception:
 youtube = build("youtube", "v3", developerKey=api_key) if api_key else None
 
 
+# --- SIVUPALKIN NAVIGAATIO & AVAIMIEN TILA ---
+st.sidebar.markdown("### 🎛️ Navigaatio")
+mode = st.sidebar.radio("Valitse osasto:", [
+    "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)", 
+    "📺 Kansainväliset Uutiskanavat (Live)", 
+    "🔴 Maailman Live-kamerat & 24/7", 
+    "❄️ Suomen Kelikamerat & Liikenne"
+])
+
+# Tarkistetaan avaimien tila sivupalkissa
+with st.sidebar.expander("🔑 API-avaimien tila"):
+    if openai_key:
+        try:
+            from openai import OpenAI
+            test_client = OpenAI(api_key=openai_key)
+            test_client.models.list()
+            st.success("OpenAI-avain toimii! ✅")
+        except Exception as e:
+            st.error(f"OpenAI-virhe: {e}")
+    else:
+        st.warning("OPENAI_API_KEY puuttuu secretsistä.")
+
+    if api_key:
+        st.success("YouTube-avain löytyy! ✅")
+    else:
+        st.warning("YouTube API-avain puuttuu.")
+
+
+# --- YLÄBANNERI ---
+st.markdown("""
+    <div class="breaking-banner">
+        <span>🔴 GLOBAL COMMAND CENTER & MASSIVE NEWS WIRE</span>
+        <span>Reaaliaikainen globaali uutis- ja valvontaverkko</span>
+    </div>
+""", unsafe_allow_html=True)
+
+st.title("🌐 Maailmanluokan Uutis- ja Live-keskus")
+st.write("Kattava, massiivinen uutisarkisto, joka kerää uutiset kymmenistä maailman johtavista medioista ja jalostaa ne tekoälyllä suomeksi.")
+
+
 # ==========================================
 # 1. GLOBAALIT & KOTIMAISET UUTISET (MASSIIVINEN LÄHDELISTÄ + AI)
 # ==========================================
@@ -96,7 +97,6 @@ if mode == "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)":
     st.subheader("📰 Globaali Toimitusverkko ja AI-päätoimittaja")
     st.write("Valitse alta haluamasi mediakategoria tai yksittäinen lähde. Tekoäly kääntää ja tiivistää uutiset suomeksi.")
 
-    # MASSIIVINEN UUTISLÄHDELISTÄ KOKO MAAILMASTA
     FEEDS = {
         # --- SUOMI ---
         "🇫🇮 Yle Uutiset (Pääuutiset)": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=yle_uutiset",
@@ -135,7 +135,6 @@ if mode == "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)":
     selected_feed_name = st.sidebar.selectbox("Valitse uutislähde:", list(FEEDS.keys()))
     feed_url = FEEDS[selected_feed_name]
     
-    # Oletuksena päällä jos OpenAI-avain löytyy
     use_ai = st.sidebar.checkbox("Käytä OpenAI-päätoimittajaa (kääntää ja tiivistää suomeksi)", value=True if openai_key else False)
     max_news_count = st.sidebar.slider("Näytettävien uutisten määrä:", min_value=5, max_value=20, value=10)
 
@@ -165,7 +164,6 @@ if mode == "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)":
                     if published:
                         st.caption(f"📅 Julkaistu: {published}")
 
-                    # JOS OpenAI on käytössä, käännetään ja tiivistetään uutinen ammattimaisesti suomeksi
                     if use_ai and openai_key:
                         try:
                             from openai import OpenAI
@@ -187,12 +185,12 @@ if mode == "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)":
                             )
                             ai_text = ai_response.choices[0].message.content
                             st.info(f"🤖 **Toimituksen tiivistelmä (Suomi):**\n\n{ai_text}")
-                        except Exception:
+                        except Exception as ai_err:
+                            st.warning(f"AI-tiivistys epäonnistui: {ai_err}")
                             st.write(clean_summary[:350] + ("..." if len(clean_summary) > 350 else ""))
                     else:
                         st.write(clean_summary[:350] + ("..." if len(clean_summary) > 350 else ""))
 
-                    # YouTube-videon täsmäytys uutiselle
                     if youtube:
                         try:
                             search_res = youtube.search().list(
@@ -369,7 +367,7 @@ elif mode == "🔴 Maailman Live-kamerat & 24/7":
 # ==========================================
 # 4. SUOMEN KELIKAMERAT & LIIKENNE
 # ==========================================
-elif mode == "❄️ Suomalaiset Kelikamerat & Liikenne":
+elif mode == "❄️ Suomen Kelikamerat & Liikenne":
     st.subheader("❄️ Suomen tie- ja kelikamerat sekä liikennevalvonta (Live)")
     st.write("Suorat live-syötteet ja kamerat Suomen teiltä, kaupungeista ja säätilasta.")
 
