@@ -39,18 +39,18 @@ st.markdown("""
 # --- YLÄBANNERI ---
 st.markdown("""
     <div class="breaking-banner">
-        <span>🔴 GLOBAL COMMAND CENTER & NEWS WIRE</span>
-        <span>Reaaliaikainen uutis- ja valvontaverkko</span>
+        <span>🔴 GLOBAL COMMAND CENTER & MASSIVE NEWS WIRE</span>
+        <span>Reaaliaikainen globaali uutis- ja valvontaverkko</span>
     </div>
 """, unsafe_allow_html=True)
 
 st.title("🌐 Maailmanluokan Uutis- ja Live-keskus")
-st.write("Kattava ja keskitetty näkymä maailman medioihin, reaaliaikaisiin 24/7-lähetyksiin, avaruuskameroihin ja Suomen tieverkkoon.")
+st.write("Kattava, massiivinen uutisarkisto, joka kerää uutiset kymmenistä maailman johtavista medioista ja jalostaa ne tekoälyllä suomeksi.")
 
 # --- SIVUPALKIN NAVIGOINTI ---
 st.sidebar.markdown("### 🎛️ Navigaatio")
 mode = st.sidebar.radio("Valitse osasto:", [
-    "📰 Globaalit & Kotimaiset Uutiset (RSS + AI / YouTube)", 
+    "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)", 
     "📺 Kansainväliset Uutiskanavat (Live)", 
     "🔴 Maailman Live-kamerat & 24/7", 
     "❄️ Suomen Kelikamerat & Liikenne"
@@ -71,36 +71,68 @@ youtube = build("youtube", "v3", developerKey=api_key) if api_key else None
 
 
 # ==========================================
-# 1. GLOBAALIT & KOTIMAISET UUTISET (RSS + AI + YouTube)
+# 1. GLOBAALIT & KOTIMAISET UUTISET (MASSIIVINEN LÄHDELISTÄ + AI)
 # ==========================================
-if mode == "📰 Globaalit & Kotimaiset Uutiset (RSS + AI / YouTube)":
-    st.subheader("📰 Pääuutiset ja AI-toimitusverkko")
-    st.write("Uutiset haetaan maailmalta ja tekoäly tiivistää tärkeimmät uutisnostot luettavaan muotoon.")
+if mode == "📰 Globaalit & Kotimaiset Pääuutiset (Massiivi-RSS + AI)":
+    st.subheader("📰 Globaali Toimitusverkko ja AI-päätoimittaja")
+    st.write("Valitse alta haluamasi mediakategoria tai yksittäinen lähde. Tekoäly kääntää ja tiivistää uutiset suomeksi.")
 
+    # MASSIIVINEN UUTISLÄHDELISTÄ KOKO MAAILMASTA
     FEEDS = {
-        "🇫🇮 Yle Uutiset (Kotimaa)": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=yle_uutiset",
-        "🇫🇮 Ilta-Sanomat": "https://www.is.mobi/rss/tuoreimmat.xml",
+        # --- SUOMI ---
+        "🇫🇮 Yle Uutiset (Pääuutiset)": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=yle_uutiset",
+        "🇫🇮 Yle Uutiset (Ulkomaat)": "https://feeds.yle.fi/uutiset/v1/majorHeadlines.rss?publisherIds=yle_uutiset&category=18-348",
+        "🇫🇮 Ilta-Sanomat (Tuoreimmat)": "https://www.is.mobi/rss/tuoreimmat.xml",
+        "🇫🇮 Iltalehti (Uutiset)": "https://www.iltalehti.fi/rss/uutiset.xml",
+        "🇫🇮 Kauppalehti (Talous)": "https://www.kauppalehti.fi/rss/uutiset",
+        "🇫🇮 Talouselämä": "https://www.talouselama.fi/rss/uutiset",
+
+        # --- MAAILMAN UUTISTOIMISTOT & KANSAINVÄLISET ---
         "🌍 BBC News (World)": "https://feeds.bbci.co.uk/news/world/rss.xml",
         "🌍 CNN Top Stories": "http://rss.cnn.com/rss/edition.rss",
+        "🌍 Reuters (Top News)": "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best",
         "🌍 Al Jazeera English": "https://www.aljazeera.com/xml/rss/all.rss",
-        "🌍 Euronews": "https://www.euronews.com/rss?format=mrss"
+        "🌍 Euronews": "https://www.euronews.com/rss?format=mrss",
+        "🌍 The Guardian (World)": "https://www.theguardian.com/world/rss",
+        "🌍 France 24": "https://www.france24.com/en/rss",
+        "🌍 Deutsche Welle (DW Top Stories)": "https://rss.dw.com/rdf/rss-en-all",
+        "🌍 Associated Press (AP News)": "https://rsshub.app/apnews/topics/ap-top-news",
+
+        # --- TALOUS & MARKKINAT ---
+        "💰 Bloomberg (Markets)": "https://feeds.bloomberg.com/markets/news.rss",
+        "💰 CNBC (Top News)": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",
+
+        # --- TEKNOLOGIA & AI ---
+        "💻 TechCrunch": "https://techcrunch.com/feed/",
+        "💻 The Verge": "https://www.theverge.com/rss/index.xml",
+        "💻 Wired": "https://www.wired.com/feed/rss",
+        "💻 MIT Technology Review": "https://www.technologyreview.com/feed/",
+
+        # --- TIEDE & AVARUUS ---
+        "🚀 NASA Breaking News": "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+        "🔬 ScienceDaily": "https://www.sciencedaily.com/rss/top.xml"
     }
 
     selected_feed_name = st.sidebar.selectbox("Valitse uutislähde:", list(FEEDS.keys()))
     feed_url = FEEDS[selected_feed_name]
-    use_ai = st.sidebar.checkbox("Käytä OpenAI-päätoimittajaa (tiivistää uutiset)", value=True if openai_key else False)
+    
+    # Oletuksena päällä jos OpenAI-avain löytyy
+    use_ai = st.sidebar.checkbox("Käytä OpenAI-päätoimittajaa (kääntää ja tiivistää suomeksi)", value=True if openai_key else False)
+    max_news_count = st.sidebar.slider("Näytettävien uutisten määrä:", min_value=5, max_value=20, value=10)
 
     try:
-        with st.spinner(f"Haetaan uutisia lähteestä {selected_feed_name}..."):
+        with st.spinner(f"Ladataan tuoreimpia uutisia lähteestä: {selected_feed_name}..."):
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
             response = requests.get(feed_url, headers=headers, timeout=10)
             
             parsed_feed = feedparser.parse(response.content)
-            entries = parsed_feed.entries[:8]
+            entries = parsed_feed.entries[:max_news_count]
 
         if not entries:
-            st.warning(f"Uutisia ei löytynyt lähteestä '{selected_feed_name}'.")
+            st.warning(f"Uutisia ei löytynyt lähteestä '{selected_feed_name}'. Kokeile toista lähdettä.")
         else:
+            st.success(f"Löytyi {len(entries)} uutisartikkelia lähteestä {selected_feed_name}.")
+            
             for entry in entries:
                 title = getattr(entry, "title", "Ei otsikkoa")
                 summary = getattr(entry, "summary", getattr(entry, "description", "Ei kuvausta"))
@@ -114,25 +146,34 @@ if mode == "📰 Globaalit & Kotimaiset Uutiset (RSS + AI / YouTube)":
                     if published:
                         st.caption(f"📅 Julkaistu: {published}")
 
+                    # JOS OpenAI on käytössä, käännetään ja tiivistetään uutinen ammattimaisesti suomeksi
                     if use_ai and openai_key:
                         try:
                             from openai import OpenAI
                             client = OpenAI(api_key=openai_key)
                             
-                            prompt = f"Tiivistä ja kirjoita seuraavasta uutisesta ammattimainen, selkeä ja sujuva uutisnosto suomeksi (enintään 2-3 lausetta):\nOtsikko: {title}\nSisältö: {clean_summary}"
+                            prompt = (
+                                "Olet maailmanluokan uutistoimituksen päätoimittaja. "
+                                "Lue seuraava uutisartikkeli (joka saattaa olla englanniksi tai suomeksi), "
+                                "käännä se tarvittaessa ja tiivistä se ammattimaisesti, selkeäksi ja "
+                                "objektiiviseksi suomenkieliseksi uutisnostoksi (enintään 2-3 lausetta):\n\n"
+                                f"Alkuperäinen otsikko: {title}\n"
+                                f"Alkuperäinen sisältö: {clean_summary}"
+                            )
                             
                             ai_response = client.chat.completions.create(
                                 model="gpt-4o-mini",
                                 messages=[{"role": "user", "content": prompt}],
-                                max_tokens=150
+                                max_tokens=180
                             )
                             ai_text = ai_response.choices[0].message.content
-                            st.info(f"🤖 **Toimituksen tiivistelmä:**\n\n{ai_text}")
+                            st.info(f"🤖 **Toimituksen tiivistelmä (Suomi):**\n\n{ai_text}")
                         except Exception:
                             st.write(clean_summary[:350] + ("..." if len(clean_summary) > 350 else ""))
                     else:
                         st.write(clean_summary[:350] + ("..." if len(clean_summary) > 350 else ""))
 
+                    # YouTube-videon täsmäytys uutiselle
                     if youtube:
                         try:
                             search_res = youtube.search().list(
