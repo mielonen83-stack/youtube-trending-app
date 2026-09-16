@@ -1,43 +1,71 @@
 import streamlit as st
 from googleapiclient.discovery import build
 
-st.set_page_config(page_title="YouTube Uutis- ja Shorts-kanavat", page_icon="📺", layout="wide")
+st.set_page_config(page_title="Maailman Uutiskanavat & Shorts-ideat", page_icon="📺", layout="wide")
 
-st.title("📺 Uutis- ja Shorts-kanavien ideapankki (Koti & Ulkomaat)")
-st.write("Valitse alta haluamasi kanava, niin näet sen tilastot ja tuoreimmat videot suoraan ruudulla!")
+st.title("📺 Maailman laajuinen uutiskanavien ideapankki")
+st.write("Valitse alta haluamasi uutismedia (Suomi, Eurooppa, USA tai maailma), niin näet sen tuoreimmat videot ja tilastot!")
 
-# Laaja lista suomalaisia ja kansainvälisiä uutis- ja ajankohtaiskanavia
+# Jättilista uutissivustoista ja -kanavista koti- ja ulkomailta
 CHANNELS = {
-    # 🇫🇮 Suomi
+    # 🇫🇮 Suomi - Yleiset ja sanomalehdet
     "🇫🇮 MTV Uutiset": "MTV Uutiset",
     "🇫🇮 Yle Uutiset": "Yle Uutiset",
+    "🇫🇮 Yle Kioski": "Yle Kioski",
     "🇫🇮 Iltalehti": "Iltalehti",
     "🇫🇮 Ilta-Sanomat": "Ilta-Sanomat",
+    "🇫🇮 Helsingin Sanomat": "Helsingin Sanomat",
+    "🇫🇮 Aamulehti": "Aamulehti",
+    "🇫🇮 Turun Sanomat": "Turun Sanomat",
+    "🇫🇮 Kaleva": "Kaleva",
     "🇫🇮 Nelonen Uutiset": "Nelonen Uutiset",
-    
-    # 🌍 Kansainväliset uutiset
+
+    # 🇸🇪 Pohjoismaat & Eurooppa
+    "🇸🇪 SVT Nyheter (Ruotsi)": "SVT Nyheter",
+    "🇳🇴 NRK Nyheter (Norja)": "NRK Nyheter",
+    "🇩🇰 DR Nyheder (Tanska)": "DR Nyheder",
     "🌍 BBC News": "BBC News",
-    "🌍 CNN": "CNN",
-    "🌍 Reuters": "Reuters",
     "🌍 Sky News": "Sky News",
-    "🌍 ABC News (USA)": "ABC News",
-    "🌍 CBS News": "CBS News",
-    "🌍 NBC News": "NBC News",
-    "🌍 Fox News": "Fox News",
-    "🌍 Al Jazeera English": "Al Jazeera English",
+    "🌍 Euronews": "Euronews",
     "🌍 DW News (Saksa)": "DW News",
     "🌍 FRANCE 24 (Ranska)": "FRANCE 24",
-    
-    # 🚀 Shorts-henkiset / Selittävät uutiskanavat
-    "💡 Insider News": "Insider News",
+    "🌍 The Guardian": "The Guardian",
+    "🌍 Le Monde (Ranska)": "Le Monde",
+
+    # 🇺🇸 USA & Maailman jättiläiset
+    "🇺🇸 CNN": "CNN",
+    "🇺🇸 Fox News": "Fox News",
+    "🇺🇸 MSNBC": "MSNBC",
+    "🇺🇸 ABC News": "ABC News",
+    "🇺🇸 CBS News": "CBS News",
+    "🇺🇸 NBC News": "NBC News",
+    "🇺🇸 Reuters": "Reuters",
+    "🇺🇸 Associated Press (AP)": "Associated Press",
+    "🇺🇸 Bloomberg": "Bloomberg News",
+    "🇺🇸 CNBC": "CNBC",
+    "🇺🇸 The Wall Street Journal": "The Wall Street Journal",
+    "🇺🇸 The New York Times": "The New York Times",
+    "🇺🇸 Washington Post": "Washington Post",
+
+    # 🌍 Muut maanosat ja kansainväliset
+    "🌍 Al Jazeera English": "Al Jazeera English",
+    "🌍 WION (Aasia)": "WION",
+    "🌍 ABC News (Australia)": "ABC News In-depth",
+    "🌍 CBC News (Kanada)": "CBC News",
+    "🌍 Channel NewsAsia (Singapore)": "CNA",
+
+    # 🚀 Visuaaliset uutiset ja taustoittavat (Parhaat Shorts-ideat!)
+    "💡 Johnny Harris": "Johnny Harris",
     "💡 Vox": "Vox",
     "💡 Vice News": "VICE News",
-    "💡 The Wall Street Journal": "The Wall Street Journal",
-    "💡 Bloomberg Technology": "Bloomberg Technology"
+    "💡 Wendover Productions": "Wendover Productions",
+    "💡 RealLifeLore": "RealLifeLore",
+    "💡 The Infographics Show": "The Infographics Show",
+    "💡 Caspian Report": "Caspian Report"
 }
 
-st.sidebar.header("Valitse kanava")
-selected_channel_name = st.sidebar.selectbox("Kanavalista:", list(CHANNELS.keys()))
+st.sidebar.header("Valitse uutislähde")
+selected_channel_name = st.sidebar.selectbox("Uutiskanavat:", list(CHANNELS.keys()))
 search_query = CHANNELS[selected_channel_name]
 
 try:
@@ -51,8 +79,7 @@ else:
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
         
-        with st.spinner(f"Etsitään kanavaa '{search_query}'..."):
-            # Etsitään kanavaa nimellä
+        with st.spinner(f"Haetaan uutisia kanavalta '{search_query}'..."):
             search_request = youtube.search().list(
                 part="snippet",
                 q=search_query,
@@ -66,17 +93,14 @@ else:
         if not search_items:
             st.warning(f"Kanavaa '{search_query}' ei löytynyt.")
         else:
-            # KORJAUS TÄSSÄ: Otetaan listan ensimmäinen alkio [0]
             channel_id = search_items[0]["id"]["channelId"]
             
-            # Haetaan kanavan tarkat tiedot
             channel_request = youtube.channels().list(
                 part="snippet,statistics,contentDetails",
                 id=channel_id
             )
             channel_response = channel_request.execute()
             
-            # KORJAUS TÄSSÄ: Otetaan listan ensimmäinen alkio [0]
             ch_data = channel_response["items"][0]
             title = ch_data["snippet"]["title"]
             description = ch_data["snippet"]["description"]
@@ -84,7 +108,7 @@ else:
             views = int(ch_data["statistics"].get("viewCount", 0))
             avatar = ch_data["snippet"]["thumbnails"]["high"]["url"]
             
-            # Näytetään kanavan tiedot siististi
+            # Näytetään tiedot
             col1, col2 = st.columns([1, 4])
             with col1:
                 st.image(avatar, width=150)
@@ -95,9 +119,8 @@ else:
                 st.metric("Katselukertoja yhteensä", f"{views:,}".replace(",", " "))
             
             st.divider()
-            st.subheader(f"Kanavan tuoreimmat videot: {title}")
+            st.subheader(f"Tuoreimmat videot: {title}")
 
-            # Haetaan uusin sisältö uploads-soittolistasta
             uploads_playlist_id = ch_data["contentDetails"]["relatedPlaylists"]["uploads"]
             
             playlist_request = youtube.playlistItems().list(
