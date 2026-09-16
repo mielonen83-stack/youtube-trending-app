@@ -1,58 +1,92 @@
 import streamlit as st
-import feedparser
-from bs4 import BeautifulSoup
+from googleapiclient.discovery import build
 
-st.set_page_config(page_title="Shorts-ideat Uutisista", page_icon="📰", layout="wide")
+st.set_page_config(page_title="YouTube-kanavien vakoilija", page_icon="📺", layout="wide")
 
-st.title("📰 Shorts-ideat koti- ja ulkomailta")
-st.write("Valitse lähde sivupalkista. Poimi uutisista aiheet, joista teet napakoita YouTube Shorts / TikTok -videoita!")
+st.title("📺 Suositut uutis- ja Shorts-kanavat (Koti & Ulkomaat)")
+st.write("Valitse alta kanavaryhmä, niin näet kanavien tilastoja ja tuoreimpia videoita ideoinnin avuksi!")
 
-# Laajempi lista: sekä suomalaisia että ulkomaisia uutislähteitä
-FEEDS = {
-    "🇫🇮 MTV Uutiset": "https://www.mtv.fi/api/feed/rss/uutiset",
-    "🇫🇮 Yle Uutiset": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=yle_uutiset",
-    "🌍 BBC News (World)": "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "🌍 CNN Top Stories": "http://rss.cnn.com/rss/edition.rss",
-    "🌍 Reuters (Top News)": "https://www.reutersagency.com/feed/?best-topics=top-news&post_type=best"
+# Esimerkkikanavien YouTube Channel ID:t
+# (Voit lisätä tai vaihtaa näitä halutessasi!)
+CHANNELS = {
+    "🇫🇮 MTV Uutiset": "UC1-82B-7b952Z505d9l653A", # Esimerkki ID, korjataan tarvittaessa tai haetaan haulla
+    "🇫🇮 Yle Uutiset": "UCl2cK_N1oZ20mCkkzJv6mDQ",
+    "🌍 BBC News": "UC16niRr50-MSBwiO3YDb3RA",
+    "🌍 CNN": "UCupvZG-5ko_eiXAupbDfxWw",
+    "🌍 Insider": "UCZXgSjDfc2GLjDvF3cSOSSQ" # Tunnettu Shorts- ja erikoisjutuistaan
 }
 
-st.sidebar.header("Uutislähteet")
-selected_source = st.sidebar.selectbox("Valitse lähde:", list(FEEDS.keys()))
+# Vaihtoehtoisesti annetaan käyttäjän valita kanava
+selected_channel_name = st.sidebar.selectbox("Valitse kanava:", list(CHANNELS.keys()))
+channel_id = CHANNELS[selected_channel_name]
 
 try:
-    with st.spinner(f"Haetaan uutisia lähteestä {selected_source}..."):
-        feed_url = FEEDS[selected_source]
-        feed = feedparser.parse(feed_url)
-        entries = feed.entries[:20]  # Otetaan 20 tuoreinta
+    api_key = st.secrets["YOUTUBE_API_KEY"]
+except Exception:
+    api_key = None
 
-    if not entries:
-        st.info("Uutisia ei löytynyt tällä hetkellä.")
-    else:
-        st.header(f"Tuoreimmat uutiset: {selected_source}")
-        st.write("Vinkki: Kansainvälisistä uutisista löydät usein erikoisia tai shokeeraavia aiheita, jotka toimivat loistavasti lyhytvideoissa!")
+if not api_key:
+    st.error("YouTube API-avainta ei ole asetettu Streamlitin salaisuuksiin (Secrets). Lisää YOUTUBE_API_KEY asetuksiin.")
+else:
+    try:
+        youtube = build("youtube", "v3", developerKey=api_key)
         
-        for index, entry in enumerate(entries):
-            title = entry.get("title", "Ei otsikkoa")
-            link = entry.get("link", "#")
-            published = entry.get("published", "")
-            summary = entry.get("summary", "Ei tiivistelmää saatavilla.")
+        with st.spinner(f"Haetaan tietoja kanavasta {selected_channel_name}..."):
+            # Haetaan kanavan tiedot (tilastot, kuvaus jne.)
+            channel_request = youtube.channels().list(
+                part="snippet,statistics,contentDetails",
+                id=channel_id
+            )
+            channel_response = channel_request.execute()
+
+        if not channel_response.get("items"):
+            st.warning("Kanavaa ei löytynyt tällä ID:llä. (Huom: Joillakin kanavilla ID voi muuttua, tarkistetaan tarvittaessa!)")
+        else:
+            ch_data = channel_response["items"][0]
+            title = ch_data["snippet"]["title"]
+            description = ch_data["snippet"]["description"]
+            subs = int(ch_data["statistics"].get("subscriberCount", 0))
+            views = int(ch_data["statistics"].get("viewCount", 0))
+            avatar = ch_data["snippet"]["thumbnails"]["high"]["url"]
             
-            # Siistitään HTML-tagit tiivistelmästä
-            soup = BeautifulSoup(summary, "html.parser")
-            clean_summary = soup.get_text()
+            # Näytetään kanavan tiedot
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                st.image(avatar, width=150)
+            with col2:
+                st.header(title)
+                st.write(description[:300] + "...")
+                st.metric("Tilaajia", f"{subs:,}".replace(",", " "))
+                st.metric("Katselukertoja yhteensä", f"{views:,}".replace(",", " "))
+            
+            st.divider()
+            st.subheader(f"Kanavan tuoreimmat videot: {title}")
 
-            with st.container():
-                st.subheader(title)
-                if published:
-                    st.caption(f"📅 Julkaistu: {published}")
-                st.write(clean_summary if clean_summary else "Ei kuvausta saatavilla.")
-                st.markdown(f"[Lue alkuperäinen artikkeli]({link})")
-                
-                # Ideointinappi
-                if st.button(f"💡 Generoi Shorts-käsikirjoitus", key=f"btn_{index}_{link}"):
-                    st.success(f"Idean runko:\n1. Koukku: 'Et ikinä arvaa mitä tapahtui...' tai 'Tästä puhutaan nyt maailmalla!'\n2. Aihe: {title}\n3. Loppuun kysymys katsojille.")
-                
-                st.divider()
+            # Haetaan kyseisen kanavan viimeisimmät videot uploads-soittolistasta
+            uploads_playlist_id = ch_data["contentDetails"]["relatedPlaylists"]["uploads"]
+            
+            playlist_request = youtube.playlistItems().list(
+                part="snippet",
+                playlistId=uploads_playlist_id,
+                maxResults=12
+            )
+            playlist_response = playlist_request.execute()
+            
+            video_items = playlist_response.get("items", [])
+            
+            if not video_items:
+                st.info("Videoita ei löytynyt.")
+            else:
+                v_cols = st.columns(3)
+                for idx, v_item in enumerate(video_items):
+                    v_title = v_item["snippet"]["title"]
+                    v_id = v_item["snippet"]["resourceId"]["videoId"]
+                    v_url = f"https://www.youtube.com/watch?v={v_id}"
+                    
+                    with v_cols[idx % 3]:
+                        st.write(f"**{v_title}**")
+                        st.video(v_url)
+                        st.divider()
 
-except Exception as e:
-    st.error(f"Virhe uutisten haussa: {e}")
+    except Exception as e:
+        st.error(f"Virhe haussa: {e}")
