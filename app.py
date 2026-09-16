@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 
 st.set_page_config(page_title="YouTube Uutiset & Live-kamerat", page_icon="🔴", layout="wide")
 
-# Pieni CSS-käännös, jotta videoiden otsikot pysyvät sopivan kokoisina ja tiiviinä
+# CSS-tyylit tiiviimmälle ruudukolle
 st.markdown("""
     <style>
     .stVideo {
@@ -15,11 +15,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🔴 YouTube Uutiset & Maailman Live-kamerat (24/7)")
-st.write("Selaa uutiskanavia tai hyppää suoraan suoriin lähetyksiin, sääkameroihin ja tapahtumiin ympäri maailmaa!")
+st.title("🔴 YouTube Uutiset & Suomen / Maailman Live-kamerat (24/7)")
+st.write("Selaa uutiskanavia tai hyppää suoraan suoriin lähetyksiin, suomalaisiin kameroihin, sääseurantaan ja tapahtumiin!")
 
 # Valikko: Kanavat vai Live-lähetykset?
-mode = st.sidebar.radio("Valitse tila:", ["📺 Uutiskanavat", "🔴 Maailman Live-lähetykset & Kamerat"])
+mode = st.sidebar.radio("Valitse tila:", ["📺 Uutiskanavat", "🔴 Live-lähetykset & Kamerat"])
 
 # Laaja uutiskanavalista
 CHANNELS = {
@@ -38,8 +38,12 @@ CHANNELS = {
     "💡 Vox": "Vox"
 }
 
-# Valmiita pikavalintoja mahtaville 24/7-livehauille
+# Laajennettu live-valikko, jossa mukana erikseen suomalaiset live-kamerat
 LIVE_PRESETS = {
+    "🇫🇮 Suomen Live-kamerat & Kaupungit": "suomi live kamera",
+    "🇫🇮 Helsinki Webcam Live": "helsinki webcam live",
+    "🇫🇮 Revontulet (Aurora Borealis Suomi)": "aurora borealis live finland",
+    "🇫🇮 Suomen luonto & Sää": "finland nature webcam live",
     "🌍 Maailman uutiset 24/7 (News Live)": "news live stream 24/7",
     "🚀 Avaruus & ISS (NASA / SpaceX)": "space live stream 24/7",
     "🌪️ Sää & Myrskyt (Weather Live)": "weather live tracking storm",
@@ -124,14 +128,14 @@ else:
         except Exception as e:
             st.error(f"Virhe: {e}")
 
-    elif mode == "🔴 Maailman Live-lähetykset & Kamerat":
-        st.subheader("🔴 Aktiiviset 24/7-lähetykset ja kamerat ympäri maailmaa")
+    elif mode == "🔴 Live-lähetykset & Kamerat":
+        st.subheader("🔴 Aktiiviset 24/7-lähetykset ja kamerat (Suomi & Maailma)")
         
-        # Valitaan pikavalinta tai kirjoitetaan itse
+        # Valitaan pikavalinta tai kirjoitetaan oma
         selected_preset_name = st.sidebar.selectbox("Valitse live-kategoria:", list(LIVE_PRESETS.keys()))
         custom_live_query = st.sidebar.text_input("Tai kirjoita oma haku:", value=LIVE_PRESETS[selected_preset_name])
         
-        # Mahdollisuus säätää montako tulosta näytetään kerralla
+        # Säätö widget montako live-kuvaa näytetään ruudulla
         max_results = st.sidebar.slider("Näytettävien live-kuvien määrä:", min_value=4, max_value=24, value=12, step=4)
 
         search_query = custom_live_query if custom_live_query else LIVE_PRESETS[selected_preset_name]
@@ -149,8 +153,9 @@ else:
             live_items = live_response.get("items", [])
 
             if not live_items:
-                st.info("Aktiivisia live-lähetyksiä tällä hakusanalla ei löytynyt tällä hetkellä. Kokeile toista hakua.")
+                st.info("Aktiivisia live-lähetyksiä tällä hakusanalla ei löytynyt tällä hetkellä. Kokeile toista hakua tai suomalaista hakusanaa.")
             else:
+                # Näytetään 4 sarakkeessa, jotta ikkunat ovat sopivan pieniä ja mahtuvat ruudulle
                 cols = st.columns(4)
                 for idx, item in enumerate(live_items):
                     v_title = item["snippet"]["title"]
