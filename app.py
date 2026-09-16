@@ -1,12 +1,12 @@
 import streamlit as st
 from googleapiclient.discovery import build
+import isodate
 
 st.set_page_config(page_title="YouTuben Trendit Aiheittain", page_icon="🎯", layout="wide")
 
 st.title("🎯 YouTuben suosituimmat videot aiheittain")
-st.write("Valitse alta tai sivupalkista haluamasi aihe-alue, niin näet Suomen katsotuimmat videot siltä saralta!")
+st.write("Valitse aihe-alue sivupalkista. (Huom. Shorts-videot on suodatettu automaattisesti pois!)")
 
-# Kategorioiden sanakirja (Avain = API:n kategoria-ID, Arvo = Näytettävä nimi)
 CATEGORIES = {
     "23": "😂 Komedia",
     "24": "🍿 Viihde",
@@ -17,14 +17,12 @@ CATEGORIES = {
     "25": "📰 Uutiset ja politiikka"
 }
 
-# Luodaan sivupalkkiin valikko aiheista
 st.sidebar.header("Suodattimet")
 selected_category_name = st.sidebar.selectbox(
     "Valitse aihe-alue:",
     list(CATEGORIES.values())
 )
 
-# Etsitään valittua nimeä vastaava ID
 selected_category_id = [cat_id for cat_id, name in CATEGORIES.items() if name == selected_category_name][0]
 
 try:
@@ -33,32 +31,45 @@ except Exception:
     api_key = None
 
 if not api_key:
-    st.error("YouTube API-avainta ei ole asetettu Streamlitin salaisuuksiin (Secrets). Lisää se asetuksiin.")
+    st.error("YouTube API-avainta ei ole asetettu Streamlitin salaisuuksiin (Secrets).")
 else:
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
         
-        with st.spinner(f"Haetaan aihekonetta: {selected_category_name}..."):
-            # Haetaan suosittuja videoita suoraan kyseisestä kategoriasta Suomessa
+        with st.spinner(f"Haetaan pitkiä videoita: {selected_category_name}..."):
+            # Haetaan hieman enemmän (max 25), jotta riittää tavaraa suodatuksen jälkeen
             request = youtube.videos().list(
-                part="snippet,statistics",
+                part="snippet,statistics,contentDetails",
                 chart="mostPopular",
                 regionCode="FI",
                 videoCategoryId=selected_category_id,
-                maxResults=12
+                maxResults=25
             )
             response = request.execute()
 
         items = response.get("items", [])
         
-        if not items:
-            st.info(s="Ei löytynyt videoita valitusta kategoriasta tällä hetkellä.")
+        # Suodatetaan Shorts-videot pois (kesto alle 60 sekuntia)
+        filtered_items = []
+        for item in items:
+            duration_str = item["contentDetails"]["duration"]
+            duration = isodate.parse_duration(duration_str)
+            
+            # Jos video on pidempi kuin 60 sekuntia, se ei ole Shortsi
+            if duration.total_seconds() > 60:
+                filtered_items.append(item)
+                
+            # Otetaan vain 12 ensimmäistä pitkää videota näkyviin
+            if len(filtered_items) >= 12:
+                break
+
+        if not filtered_items:
+            st.info("Ei löytynyt sopivia pitkiä videoita valitusta kategoriasta tällä hetkellä.")
         else:
             st.header(selected_category_name)
             
-            # Näytetään videot siistissä 3 sarakkeen ruudukossa
             cols = st.columns(3)
-            for index, item in enumerate(items):
+            for index, item in enumerate(filtered_items):
                 title = item["snippet"]["title"]
                 channel = item["snippet"]["channelTitle"]
                 views = int(item["statistics"].get("viewCount", 0))
