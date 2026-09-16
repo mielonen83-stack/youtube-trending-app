@@ -10,6 +10,25 @@ st.set_page_config(
     page_icon="🌐", 
     layout="wide",
     initial_sidebar_state="expanded"
+
+    # Nopea testauskoodi avaimille
+with st.sidebar.expander("🔑 API-avaimien tila"):
+    if openai_key:
+        try:
+            from openai import OpenAI
+            test_client = OpenAI(api_key=openai_key)
+            # Tehdään kevyt testikutso
+            test_client.models.list()
+            st.success("OpenAI-avain toimii! ✅")
+        except Exception as e:
+            st.error(f"OpenAI-virhe: {e}")
+    else:
+      st.warning("OPENAI_API_KEY puuttuu secretsistä.")
+
+    if api_key:
+        st.success("YouTube-avain löytyy! ✅")
+    else:
+        st.warning("YouTube API-avain puuttuu.")
 )
 
 # --- AMMATTIMAINEN CSS-MUOTOILU ---
