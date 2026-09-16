@@ -5,7 +5,7 @@ import isodate
 st.set_page_config(page_title="YouTuben Trendit Aiheittain", page_icon="🎯", layout="wide")
 
 st.title("🎯 YouTuben suosituimmat videot aiheittain")
-st.write("Valitse aihe-alue sivupalkista. (Huom. Shorts-videot on suodatettu automaattisesti pois!)")
+st.write("Valitse aihe-alue sivupalkista. (Shorts-videot on suodatettu automaattisesti pois!)")
 
 CATEGORIES = {
     "23": "😂 Komedia",
@@ -36,14 +36,14 @@ else:
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
         
-        with st.spinner(f"Haetaan pitkiä videoita: {selected_category_name}..."):
-            # Haetaan hieman enemmän (max 25), jotta riittää tavaraa suodatuksen jälkeen
+        with st.spinner(f"Haetaan videoita aiheesta: {selected_category_name}..."):
+            # Haetaan isompi nippu (esim. 40), jotta suodatuksen jälkeen riittää pitkiä videoita
             request = youtube.videos().list(
                 part="snippet,statistics,contentDetails",
                 chart="mostPopular",
                 regionCode="FI",
                 videoCategoryId=selected_category_id,
-                maxResults=25
+                maxResults=40
             )
             response = request.execute()
 
@@ -55,20 +55,20 @@ else:
             duration_str = item["contentDetails"]["duration"]
             duration = isodate.parse_duration(duration_str)
             
-            # Jos video on pidempi kuin 60 sekuntia, se ei ole Shortsi
             if duration.total_seconds() > 60:
                 filtered_items.append(item)
                 
-            # Otetaan vain 12 ensimmäistä pitkää videota näkyviin
-            if len(filtered_items) >= 12:
+            # Asetetaan halutuksi maksimimääräksi nyt esimerkiksi 24 kpl
+            if len(filtered_items) >= 24:
                 break
 
         if not filtered_items:
             st.info("Ei löytynyt sopivia pitkiä videoita valitusta kategoriasta tällä hetkellä.")
         else:
-            st.header(selected_category_name)
+            st.header(f"{selected_category_name} (Näytetään {len(filtered_items)} suosituinta)")
             
-            cols = st.columns(3)
+            # Luodaan 4 saraketta, jotta useampi video mahtuu siististi rinnakkain
+            cols = st.columns(4)
             for index, item in enumerate(filtered_items):
                 title = item["snippet"]["title"]
                 channel = item["snippet"]["channelTitle"]
@@ -76,7 +76,7 @@ else:
                 video_id = item["id"]
                 url = f"https://www.youtube.com/watch?v={video_id}"
                 
-                with cols[index % 3]:
+                with cols[index % 4]:
                     st.subheader(title)
                     st.write(f"📺 **Kanava:** {channel}")
                     st.write(f"👁️ **Katselukerrat:** {views:,}".replace(",", " "))
